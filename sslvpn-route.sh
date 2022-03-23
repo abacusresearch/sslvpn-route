@@ -17,6 +17,7 @@ ME=$(basename "${0}")
 SYSLOG=false
 RED='\033[0;31m'
 NC='\033[0m'
+declare -a ips
 
 function usage {
 	echo "Usage: ${ME} <IP or Hostname>" >&2
@@ -111,16 +112,17 @@ function error {
 
 function getIps {
 	if [[ ${dest} =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; then
-		ips=("${dest}")
+		debug 'Detect an IP adress'
+		ips+=(${dest})
 	elif [[ ${dest} =~ ^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$ ]]; then
+		debug 'Dectect a hostname'
 		local dns=$(dig +short "${dest}" | grep -v '\.$' | xargs)
-		ips=($dns)
+		ips+=($dns)
 	else
 		error 'Destination argument is not a valide IP or Hostname'
 		cleanup 1
 	fi
-	declare -a ips
-	if ((${#ips[@]})); then
+	if ! ((${#ips[@]})); then
 		error 'No IP could be resolved for this hostname'
 		cleanup 1
 	fi
@@ -137,19 +139,17 @@ function getGwIp {
 function setRoute {
 	for ip in "${ips[@]}"; do
 		ip_route="${ip}/32"
+		debug 'Get sudo permission to set the IP route'
 		if command -v ip &> /dev/null; then
-			debug 'Get sudo permission to set the IP route'
 			sudo ip route add ${ip_route} dev ppp0
-			debug "Set ip route ${ip_route} through SSLVPN"
 		elif command -v netstat &> /dev/null; then
 			getGwIp
-			debug 'Get sudo permission to set the IP route'
 			sudo route add ${ip_route} ${gwip}
-			debug "Set ip route ${ip_route} through SSLVPN"
 		else
 			error 'Please install iproute2 or net-tools'
 			cleanup 1
 		fi
+		debug "Set ip route ${ip_route} through SSLVPN"
 	done
 }
 
