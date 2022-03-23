@@ -1,4 +1,4 @@
-#requires -version 5
+#requires -version 5 -RunAsAdministrator
 
 <#
 .SYNOPSIS
@@ -46,9 +46,7 @@ function Get-GwIp {
 function Set-Route {
 	$Gw = Get-GwIp
 	Foreach ($ip in $script:IPs) {
-		Start-Process -FilePath powershell.exe -ArgumentList {
-			route ADD $ip MASK 255.255.255.255 $Gw.NextHop
-		} -verb RunAs
+		route ADD $ip MASK 255.255.255.255 $Gw.NextHop
 		Write-Host "Set Route $ip/32 through SSLVPN"
 	}
 }
