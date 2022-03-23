@@ -129,10 +129,16 @@ function getIps {
 }
 
 function getGwIp {
-	gwip=$(netstat -nr | grep 46.227.224 | awk '{ print $2 }')
-	if [[ ${gwip} == '0.0.0.0' ]]; then
-		error 'Cannot identify the gateway IP - please contact your IT-Helpdesk'
-		cleanup 1
+	ROUTE=$(route -n get 46.227.224.0 2>/dev/null | awk '/interface: / {print $2}')
+	if [ -n "$ROUTE" ]; then
+				ifconfig "$ROUTE" |grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'
+	else
+		for i in $(ifconfig -s | awk '{print $1}' | awk '{if(NR>1)print}')
+		do
+			if [[ $i != *"vboxnet"* ]]; then
+				ifconfig "$i" |grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'
+			fi
+		done
 	fi
 }
 
@@ -143,8 +149,7 @@ function setRoute {
 		if command -v ip &> /dev/null; then
 			sudo ip route add ${ip_route} dev ppp0
 		elif command -v netstat &> /dev/null; then
-			getGwIp
-			sudo route add ${ip_route} ${gwip}
+			sudo route add ${ip_route} $(getGwIp)
 		else
 			error 'Please install iproute2 or net-tools'
 			cleanup 1
